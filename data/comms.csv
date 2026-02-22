@@ -1,0 +1,21 @@
+comm_id,entity_id,timestamp,channel,content,participants
+COM-001,SMITH_J,2024-01-15 09:10:00,CHAT,hey got a big client order coming through EUR 20 mio. getting into position now,SMITH_J|JONES_R
+COM-002,SMITH_J,2024-01-15 09:15:00,PHONE,loaded up on eurusd. client order should move it. lets see,SMITH_J|DESK_HEAD
+COM-003,SMITH_J,2024-01-15 09:20:00,CHAT,client confirmed. 20 mio EUR bid. fill them around 1.0918. stay long,SMITH_J|JONES_R
+COM-004,SMITH_J,2024-01-15 09:28:00,CHAT,done with client. out of risk now on the back book. nice fill,SMITH_J|DESK_HEAD
+COM-005,SMITH_J,2024-01-15 09:30:00,CHAT,flat now. covered the position after the move. 13 bps profit,SMITH_J|JONES_R
+COM-006,SMITH_J,2024-01-15 09:45:00,EMAIL,EOD update: traded EUR 5bio today. client flows were supportive. good session,SMITH_J|MANAGER
+COM-007,JONES_R,2024-01-15 09:00:00,CHAT,taking a position in cable ahead of data. looks good,JONES_R|SMITH_J
+COM-008,JONES_R,2024-01-15 09:20:00,CHAT,done on cable. out. good move,JONES_R|SMITH_J
+COM-009,FX_PROP_1,2024-01-15 09:10:00,CHAT,heard there is a big client order in eurusd. front running it. buy 10 mio,FX_PROP_1|TRADER_B
+COM-010,FX_PROP_1,2024-01-15 09:25:00,PHONE,loaded. client order will move it. buy more before they fill,FX_PROP_1|TRADER_B
+COM-011,FX_PROP_1,2024-01-15 09:29:30,CHAT,out of position. client filled. made good p&l. cover the rest,FX_PROP_1|TRADER_B
+COM-012,FX_PROP_1,2024-01-15 09:40:00,CHAT,flat. gone. done for now. nice run,FX_PROP_1|DESK_HEAD
+COM-013,FX_PROP_1,2024-01-15 09:42:00,EMAIL,session summary: eurusd prop. used client intelligence. 25bps net,FX_PROP_1|COMPLIANCE
+COM-014,SMITH_J,2024-01-15 09:05:00,CHAT,layering eurusd to attract flow. will cancel once price moves,SMITH_J|JONES_R
+COM-015,SMITH_J,2024-01-15 09:07:00,CHAT,good the market moved. cancelled all the fake bids. now real position,SMITH_J|JONES_R
+COM-016,JONES_R,2024-01-15 08:45:00,CHAT,quiet morning. watching eurusd for direction,JONES_R|SMITH_J
+COM-017,SMITH_J,2024-01-15 08:50:00,CHAT,setting up stacked orders to push the bid. will cancel after fill,SMITH_J|JONES_R
+COM-018,FX_PROP_1,2024-01-15 09:15:00,CHAT,going to wash some risk with counterparty HSBC. same venue,FX_PROP_1|OPS
+COM-019,FX_PROP_1,2024-01-15 09:55:00,CHAT,normal day. nothing unusual,FX_PROP_1|COMPLIANCE
+COM-020,SMITH_J,2024-01-15 10:00:00,CHAT,all good. clean slate. see you tomorrow,SMITH_J|DESK_HEAD

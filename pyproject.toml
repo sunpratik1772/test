@@ -1,0 +1,50 @@
+[project]
+name = "fx-fro-surveillance"
+version = "0.1.0"
+description = "FX Front-Running-Order surveillance agent using ADK multi-agent pipeline with rules-based and agentic investigation phases."
+license = {text = "Apache License 2.0"}
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    "google-adk>=1.8.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "pyyaml>=6.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "pytest-asyncio>=1.3.0",
+    "nest-asyncio>=1.6.0",
+    "ruff>=0.4.6",
+    "mypy>=1.19.0",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "frontend", "fx_fro_surveillance"]
+
+[tool.mypy]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true
+follow_imports = "silent"
+ignore_missing_imports = true
+explicit_package_bases = true
+disable_error_code = ["misc", "no-untyped-call", "no-any-return"]
+exclude = [".venv"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "frontend"]
+
+[tool.pytest.ini_options]
+pythonpath = "."
+asyncio_default_fixture_loop_scope = "function"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

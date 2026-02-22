@@ -1,0 +1,117 @@
+workflow:
+  name: fx_fro_surveillance
+  version: "1.0"
+  description: >
+    FX Front-Running-Order (FX-FRO) trade surveillance workflow.
+    Investigates suspicious trading patterns across orders, trades,
+    market data, and communications to detect front-running, wash trades,
+    spoofing, and layering.
+  escalation_threshold: 0.80
+  max_iterations: 5
+
+steps:
+  - step: 1
+    name: orders_investigation
+    agent: orders_investigator
+    data_sets:
+      - data/orders.csv
+    parameters:
+      lookback_minutes: 60
+      cancel_rate_threshold: 0.70
+      anomaly_threshold: 0.65
+      checks:
+        - spoofing
+        - layering
+
+  - step: 2
+    name: trades_investigation
+    agent: trades_investigator
+    data_sets:
+      - data/trades.csv
+    parameters:
+      lookback_minutes: 60
+      front_run_seconds: 60
+      wash_trade_seconds: 300
+      checks:
+        - front_running
+        - wash_trades
+
+  - step: 3
+    name: market_data_investigation
+    agent: market_data_investigator
+    data_sets:
+      - data/market_data.csv
+    parameters:
+      lookback_minutes: 60
+      impact_window_minutes: 10
+      price_move_threshold_pct: 0.15
+      volume_zscore_threshold: 2.0
+      checks:
+        - price_impact
+        - volume_anomaly
+        - spread_widening
+
+  - step: 4
+    name: comms_investigation
+    agent: comms_investigator
+    data_sets:
+      - data/comms.csv
+    parameters:
+      lookback_minutes: 90
+      keywords:
+        - position
+        - done
+        - cover
+        - fill
+        - loaded
+        - out
+        - risk
+        - off
+        - flat
+        - gone
+        - move
+        - front
+        - client
+      checks:
+        - pre_trade_coordination
+        - post_trade_confirmation
+
+thresholds:
+  escalation: 0.80
+  spoofing_cancel_rate: 0.70
+  layering_min_levels: 3
+  front_running_seconds: 60
+  wash_trade_seconds: 300
+  volume_zscore: 2.0
+  price_impact_pct: 0.15
+  comms_coordination_score: 0.30
+
+scoring_weights:
+  orders_anomaly: 0.25
+  trades_anomaly: 0.35
+  market_data_anomaly: 0.20
+  comms_coordination: 0.20
+
+investigation_type: fx_fro
+
+parameter_ranges:
+  front_run_seconds:
+    min: 30
+    max: 300
+    base: 60
+  wash_trade_seconds:
+    min: 60
+    max: 900
+    base: 300
+  cancel_rate_threshold:
+    min: 0.50
+    max: 0.95
+    base: 0.70
+  lookback_minutes:
+    min: 30
+    max: 240
+    base: 60
+  comms_lookback_minutes:
+    min: 60
+    max: 360
+    base: 90
