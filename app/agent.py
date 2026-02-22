@@ -19,6 +19,7 @@ from .config import config
 from .data_loaders import BASE_WORKFLOW
 from .sop_guidelines import COMMS_KEYWORDS_DEFAULT, FRO_SOP
 from .tools import (
+    search_all_data,
     search_comms,
     search_market_data,
     search_orders,
@@ -99,6 +100,7 @@ search_orders_tool = FunctionTool(search_orders)
 search_trades_tool = FunctionTool(search_trades)
 search_market_data_tool = FunctionTool(search_market_data)
 search_comms_tool = FunctionTool(search_comms)
+search_all_data_tool = FunctionTool(search_all_data)
 write_attempt_artifacts_tool = FunctionTool(write_attempt_artifacts)
 
 
@@ -423,39 +425,14 @@ data_investigator = LlmAgent(
     PROCEDURE:
     1. Extract entity_id, symbol, and time_window from 'surveillance_plan' or the alert message.
        Default symbol: 'EUR/USD'. Default entity_id: extract from the alert.
-    2. Call search_orders(entity_id, time_window) — detect spoofing and layering.
-    3. Call search_trades(entity_id, time_window) — detect wash trades and front-running.
-    4. Call search_market_data(symbol, time_window) — detect price/volume anomalies.
-    5. Call search_comms(entity_id, time_window) — detect coordination keywords.
-    6. After ALL four tools have returned results, merge ALL tool outputs into one JSON object.
-       The tools already return the correct field names — do NOT rename any fields.
-       Just combine every field from all four tool responses into a single flat JSON:
-
-    {{
-      "entity_id": "<from any tool response>",
-      "symbol": "<symbol>",
-      "time_window": "<window>",
-      "orders_anomaly_score": <from search_orders>,
-      "cancel_rate": <from search_orders>,
-      "spoofing_flag": <from search_orders>,
-      "layering_patterns": <from search_orders>,
-      "trades_anomaly_score": <from search_trades>,
-      "wash_trade_pairs": <list from search_trades>,
-      "front_running_signals": <list from search_trades>,
-      "market_data_anomaly_score": <from search_market_data>,
-      "price_change_pct": <from search_market_data>,
-      "volume_zscore": <from search_market_data>,
-      "volume_anomaly_flag": <from search_market_data>,
-      "spread_widening_flag": <from search_market_data>,
-      "comms_coordination_score": <from search_comms>,
-      "keyword_hits": <from search_comms>,
-      "hit_details": <from search_comms>
-    }}
+    2. Call search_all_data(entity_id, symbol, time_window, cancel_rate_threshold, front_run_seconds, wash_trade_seconds, impact_window_minutes) 
+       to concurrently gather all data.
+    3. The tool will return a single combined JSON object. Return this object exactly as-is.
 
     Output ONLY the JSON object. No markdown. No text outside the JSON.
     Current date: {datetime.datetime.now().strftime("%Y-%m-%d")}
     """,
-    tools=[search_orders_tool, search_trades_tool, search_market_data_tool, search_comms_tool],
+    tools=[search_all_data_tool],
     output_key="surveillance_findings",
     after_agent_callback=collect_evidence_callback,
 )
@@ -747,8 +724,8 @@ agentic_executor = LlmAgent(
       Read agentic_plan carefully. Note the time_window.expanded, parameters, and tools_sequence.
 
     Step 2 — EXECUTE TOOL CALLS WITH PLAN PARAMETERS
-      Call search_orders, search_trades, search_market_data, search_comms with the
-      EXACT parameters from agentic_plan (expanded time window, refined thresholds).
+      Call search_all_data(entity_id, symbol, time_window, cancel_rate_threshold_from_plan, front_run_seconds_from_plan, wash_trade_seconds_from_plan, impact_window_minutes)
+      using the EXACT parameters from agentic_plan (expanded time window, refined thresholds).
 
     Step 3 — TRADER HISTORY (Section 7, iteration ≥ 2)
       If current_attempt ≥ 2: also search prior day for baseline.
@@ -813,7 +790,7 @@ agentic_executor = LlmAgent(
     Current date: {datetime.datetime.now().strftime("%Y-%m-%d")}
     Output ONLY a valid JSON object — no markdown, no text outside the JSON.
     """,
-    tools=[search_orders_tool, search_trades_tool, search_market_data_tool, search_comms_tool],
+    tools=[search_all_data_tool],
     output_key="surveillance_findings",
     after_agent_callback=collect_evidence_callback,
 )

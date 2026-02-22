@@ -83,39 +83,46 @@ COMMS_SCHEMA = {
 }
 
 
-def _load_csv(path: str, schema: dict, datetime_col: str = "timestamp") -> pd.DataFrame:
+import functools
+
+@functools.lru_cache(maxsize=32)
+def _load_csv(path: str, schema: tuple, datetime_col: str = "timestamp") -> pd.DataFrame:
     """Load and validate a CSV file against a schema."""
+    # Convert tuple back to dict for the logic
+    schema_dict = dict(schema)
     p = Path(path)
     if not p.exists():
         logger.warning(f"Data file not found: {path}. Returning empty DataFrame.")
-        return pd.DataFrame(columns=list(schema.keys()))
+        return pd.DataFrame(columns=list(schema_dict.keys()))
     df = pd.read_csv(p, dtype=str)
     # Add missing columns
-    for col in schema:
+    for col in schema_dict:
         if col not in df.columns:
             logger.warning(f"Column '{col}' missing from {path}; filling with empty string.")
             df[col] = ""
     # Cast numeric columns
-    for col, dtype in schema.items():
+    for col, dtype in schema_dict.items():
         if dtype == float:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
     # Parse timestamp
     if datetime_col in df.columns:
         df[datetime_col] = pd.to_datetime(df[datetime_col], errors="coerce")
-    return df[list(schema.keys())]
+    return df[list(schema_dict.keys())]
 
+# LRU cache requires hashable arguments, so we convert the schema dicts to tuples of tuples
+_ORDERS_SCHEMA_MEMO = tuple(ORDERS_SCHEMA.items())
+_TRADES_SCHEMA_MEMO = tuple(TRADES_SCHEMA.items())
+_MARKET_DATA_SCHEMA_MEMO = tuple(MARKET_DATA_SCHEMA.items())
+_COMMS_SCHEMA_MEMO = tuple(COMMS_SCHEMA.items())
 
 def load_orders(path: str = "data/orders.csv") -> pd.DataFrame:
-    return _load_csv(path, ORDERS_SCHEMA)
-
+    return _load_csv(path, _ORDERS_SCHEMA_MEMO)
 
 def load_trades(path: str = "data/trades.csv") -> pd.DataFrame:
-    return _load_csv(path, TRADES_SCHEMA)
-
+    return _load_csv(path, _TRADES_SCHEMA_MEMO)
 
 def load_market_data(path: str = "data/market_data.csv") -> pd.DataFrame:
-    return _load_csv(path, MARKET_DATA_SCHEMA)
-
+    return _load_csv(path, _MARKET_DATA_SCHEMA_MEMO)
 
 def load_comms(path: str = "data/comms.csv") -> pd.DataFrame:
-    return _load_csv(path, COMMS_SCHEMA)
+    return _load_csv(path, _COMMS_SCHEMA_MEMO)

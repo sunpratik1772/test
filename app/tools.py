@@ -1,5 +1,6 @@
 """FX-FRO surveillance tools: CSV-backed FunctionTools for each data type plus artifact writer."""
 
+import asyncio
 import json
 import logging
 import os
@@ -165,53 +166,92 @@ def search_trades(
 
     if wash_trade_check and len(filtered) >= 2:
         threshold_s = config.wash_trade_seconds
-        for symbol in filtered["symbol"].unique():
-            sym_df = filtered[filtered["symbol"] == symbol].sort_values("timestamp")
-            rows = sym_df.to_dict("records")
-            for i, t1 in enumerate(rows):
-                for t2 in rows[i + 1:]:
-                    delta = (t2["timestamp"] - t1["timestamp"]).total_seconds()
-                    if delta > threshold_s:
-                        break
-                    if (
-                        t1["counterparty"] == t2["counterparty"]
-                        and t1["side"].upper() != t2["side"].upper()
-                    ):
-                        wash_trade_pairs.append({
-                            "trade_1": t1["trade_id"],
-                            "trade_2": t2["trade_id"],
-                            "symbol": symbol,
-                            "counterparty": t1["counterparty"],
-                            "delta_seconds": round(delta, 1),
-                        })
-
+        
+        # Sort for merge_asof
+        filtered_sorted = filtered.sort_values("timestamp")
+        
+        # Self-join on counterparty + symbol to find potential wash trades within the time window
+        # merge_asof finds the closest previous match (or we can use a standard merge if we want all matches, 
+        # but since we want any wash pair, a time-windowed merge is efficient)
+        # Using a standard merge with time filtering is safer to catch all pairs within the window:
+        merged = pd.merge(
+            filtered_sorted, 
+            filtered_sorted, 
+            on=["symbol", "counterparty"], 
+            suffixes=("_1", "_2")
+        )
+        
+        # Filter: trade 2 must be strictly AFTER trade 1, within threshold, and opposite side
+        dt = (merged["timestamp_2"] - merged["timestamp_1"]).dt.total_seconds()
+        wash_mask = (
+            (dt > 0) & 
+            (dt <= threshold_s) & 
+            (merged["side_1"].str.upper() != merged["side_2"].str.upper()) &
+            (merged["trade_id_1"] != merged["trade_id_2"])
+        )
+        
+        wash_df = merged[wash_mask]
+        
+        for _, row in wash_df.iterrows():
+            wash_trade_pairs.append({
+                "trade_1": row["trade_id_1"],
+                "trade_2": row["trade_id_2"],
+                "symbol": row["symbol"],
+                "counterparty": row["counterparty"],
+                "delta_seconds": round((row["timestamp_2"] - row["timestamp_1"]).total_seconds(), 1),
+            })
     if front_run_check:
         # Look for client orders followed by prop trades within front_run_seconds
         orders_df = load_orders(config.orders_data_path)
+        
+        # Check if trade_type exists in orders_df, otherwise fallback
+        has_trade_type = "trade_type" in orders_df.columns
+        
         client_orders = orders_df[
             (orders_df["entity_id"].str.upper() == entity_id.upper())
             & (orders_df["timestamp"] >= expanded_start)
             & (orders_df["timestamp"] <= expanded_end)
-            & (orders_df["trade_type"].str.lower() == "client" if "trade_type" in orders_df.columns else pd.Series(True, index=orders_df.index))
-        ]
-        prop_trades = filtered[filtered["trade_type"].str.lower() == "prop"]
+        ].copy()
+        
+        if len(client_orders) > 0 and has_trade_type:
+             client_orders = client_orders[client_orders["trade_type"].str.lower() == "client"]
+            
+        prop_trades = filtered[filtered["trade_type"].str.lower() == "prop"] if "trade_type" in filtered.columns else filtered.copy()
 
-        threshold_s = config.front_run_seconds
-        for _, co in client_orders.iterrows():
-            for _, pt in prop_trades.iterrows():
-                if co["symbol"] != pt["symbol"]:
-                    continue
-                delta = (pt["timestamp"] - co["timestamp"]).total_seconds()
-                if 0 < delta <= threshold_s and co["side"].upper() == pt["side"].upper():
-                    front_running_signals.append({
-                        "client_order_id": co["order_id"],
-                        "prop_trade_id": pt["trade_id"],
-                        "symbol": co["symbol"],
-                        "side": co["side"],
-                        "delta_seconds": round(delta, 1),
-                        "client_order_time": str(co["timestamp"]),
-                        "prop_trade_time": str(pt["timestamp"]),
-                    })
+        if len(client_orders) > 0 and len(prop_trades) > 0:
+            threshold_s = config.front_run_seconds
+            
+            # Vectorized merge on symbol and side
+            # Both need to be upper case for side match
+            client_orders["side_upper"] = client_orders["side"].str.upper()
+            prop_trades_copy = prop_trades.copy()
+            prop_trades_copy["side_upper"] = prop_trades_copy["side"].str.upper()
+            
+            # Inner join on symbol and side 
+            merged_fr = pd.merge(
+                client_orders, 
+                prop_trades_copy, 
+                on=["symbol", "side_upper"], 
+                suffixes=("_co", "_pt")
+            )
+            
+            # Filter: prop trade must be AFTER client order but within front_run_seconds
+            dt_fr = (merged_fr["timestamp_pt"] - merged_fr["timestamp_co"]).dt.total_seconds()
+            fr_mask = (dt_fr > 0) & (dt_fr <= threshold_s)
+            
+            fr_df = merged_fr[fr_mask]
+            
+            for _, row in fr_df.iterrows():
+                front_running_signals.append({
+                    "client_order_id": row["order_id"],
+                    "prop_trade_id": row["trade_id"],
+                    "symbol": row["symbol"],
+                    "side": row["side_co"],
+                    "delta_seconds": round((row["timestamp_pt"] - row["timestamp_co"]).total_seconds(), 1),
+                    "client_order_time": str(row["timestamp_co"]),
+                    "prop_trade_time": str(row["timestamp_pt"]),
+                })
+
 
     if wash_trade_pairs:
         anomaly_score = max(anomaly_score, 0.70)
@@ -384,6 +424,45 @@ def search_comms(
         "hit_details": keyword_hits,
         "filtered_comms": filtered_records,
     }
+
+
+# ---------------------------------------------------------------------------
+# Aggregated Async Tool (for concurrent execution)
+# ---------------------------------------------------------------------------
+
+async def search_all_data(
+    entity_id: str,
+    symbol: str, 
+    time_window: str,
+    cancel_rate_threshold: float = 0.70,
+    front_run_seconds: int = 60,
+    wash_trade_seconds: int = 300,
+    impact_window_minutes: int = 10,
+) -> dict[str, Any]:
+    """Concurrently search orders, trades, market data, and comms for a given entity and time window."""
+    
+    # Run the synchronous pandas operations in threads
+    orders_task = asyncio.to_thread(search_orders, entity_id, time_window, cancel_rate_threshold, True)
+    trades_task = asyncio.to_thread(search_trades, entity_id, time_window, True, True)
+    market_task = asyncio.to_thread(search_market_data, symbol, time_window, impact_window_minutes)
+    comms_task  = asyncio.to_thread(search_comms, entity_id, time_window, None)
+
+    # Gather results concurrently
+    orders_res, trades_res, market_res, comms_res = await asyncio.gather(
+        orders_task, trades_task, market_task, comms_task
+    )
+
+    merged = {}
+    merged.update({k: v for k, v in orders_res.items() if k not in ("entity_id", "time_window")})
+    merged.update({k: v for k, v in trades_res.items() if k not in ("entity_id", "time_window")})
+    merged.update({k: v for k, v in market_res.items() if k not in ("symbol", "time_window")})
+    merged.update({k: v for k, v in comms_res.items() if k not in ("entity_id", "time_window")})
+    
+    merged["entity_id"] = entity_id
+    merged["symbol"] = symbol
+    merged["time_window"] = time_window
+
+    return merged
 
 
 # ---------------------------------------------------------------------------
