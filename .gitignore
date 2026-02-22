@@ -8,9 +8,10 @@ venv/
 dist/
 build/
 
-# Environment
+# Environment — NEVER commit secrets
 .env
 app/.env
+*.env
 
 # Node / Frontend
 node_modules/

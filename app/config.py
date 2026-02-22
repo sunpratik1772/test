@@ -14,19 +14,21 @@ env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 # ---------------------------------------------------------------------------
-# All known API keys (primary from .env, then fallbacks)
+# All known API keys — loaded from environment variables only.
+# Set GOOGLE_API_KEY (required) and optionally GOOGLE_API_KEY_2 … GOOGLE_API_KEY_9
+# as fallbacks for automatic key rotation on quota exhaustion.
+# Never hardcode keys here — use app/.env (gitignored) instead.
 # ---------------------------------------------------------------------------
 _CANDIDATE_KEYS: list[str] = [k for k in [
     os.getenv("GOOGLE_API_KEY", ""),
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
+    os.getenv("GOOGLE_API_KEY_2", ""),
+    os.getenv("GOOGLE_API_KEY_3", ""),
+    os.getenv("GOOGLE_API_KEY_4", ""),
+    os.getenv("GOOGLE_API_KEY_5", ""),
+    os.getenv("GOOGLE_API_KEY_6", ""),
+    os.getenv("GOOGLE_API_KEY_7", ""),
+    os.getenv("GOOGLE_API_KEY_8", ""),
+    os.getenv("GOOGLE_API_KEY_9", ""),
 ] if k]
 
 # Ordered by preference: lite first (more RPM), then full flash
