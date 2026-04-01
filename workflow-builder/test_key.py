@@ -11,11 +11,11 @@ try:
 except ImportError:
     _SSL_CTX = ssl.create_default_context()
 
+import os
+
+# Load key from environment — never hardcode API keys in source
 KEYS = [
-    ("KEY_1", "AIzaSyD3Kzf81ZjmeMQ939LrZCCOIJOWF9zY_eU"),
-    ("KEY_2", "AIzaSyDXyoOtdtqMAPG9UU-xIr9pOoJpFowQdC0"),
-    ("KEY_3", "AIzaSyCIuPTalxv72RJurq0lqaQvzGGUIHOhoEM"),
-    ("KEY_4", "AIzaSyA6LOg1xJHiG6G91hHz7KDueGttl_nClKE"),
+    ("KEY_1", os.environ.get("GOOGLE_API_KEY", "")),
 ]
 
 MODEL = "gemini-2.0-flash"
