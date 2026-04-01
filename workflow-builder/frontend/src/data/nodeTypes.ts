@@ -1,0 +1,230 @@
+export type NodeCategory = 'trigger' | 'collector' | 'extractor' | 'analyser' | 'filter' | 'output';
+
+export interface ConfigField {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'select';
+  options?: string[];
+  default: string | number;
+}
+
+export interface NodeTypeDef {
+  type: string;
+  label: string;
+  category: NodeCategory;
+  colour: string;
+  description: string;
+  inputs: string[];
+  outputs: string[];
+  config: ConfigField[];
+}
+
+export const CATEGORY_META: Record<NodeCategory, { label: string; colour: string; icon: string }> = {
+  trigger:   { label: 'Triggers',   colour: '#f97316', icon: '⚡' },
+  collector: { label: 'Collectors', colour: '#3b82f6', icon: '📥' },
+  extractor: { label: 'Extractors', colour: '#8b5cf6', icon: '🔬' },
+  analyser:  { label: 'Analysers',  colour: '#14b8a6', icon: '📊' },
+  filter:    { label: 'Filters',    colour: '#f59e0b', icon: '🔀' },
+  output:    { label: 'Outputs',    colour: '#64748b', icon: '📤' },
+};
+
+export const NODE_TYPE_DEFS: NodeTypeDef[] = [
+  // TRIGGERS
+  {
+    type: 'trigger', label: 'Alert Trigger', category: 'trigger', colour: '#f97316',
+    description: 'Entry point. Selects alert type and supplies alert metadata.',
+    inputs: [], outputs: ['alert_context'],
+    config: [
+      { key: 'alert_type', label: 'Alert Type', type: 'select',
+        options: ['fx_front_running', 'fi_spoofing', 'fi_wash_trading'], default: 'fx_front_running' },
+      { key: 'alert_id',        label: 'Alert ID',        type: 'text',   default: 'FRO-001' },
+      { key: 'trader_id',       label: 'Trader ID',       type: 'text',   default: 'TRADER_001' },
+      { key: 'instrument',      label: 'Instrument',      type: 'text',   default: 'EUR/USD' },
+      { key: 'tenor',           label: 'Tenor',           type: 'text',   default: '' },
+      { key: 'window_minutes',  label: 'Lookback (min)',  type: 'number', default: 60 },
+    ],
+  },
+  // COLLECTORS
+  {
+    type: 'order_collector', label: 'Order Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Fetches client & own orders for a trader within the time window.',
+    inputs: ['alert_context'], outputs: ['raw_orders'],
+    config: [
+      { key: 'table', label: 'Source Table', type: 'text', default: 'hs_client_order' },
+      { key: 'sort',  label: 'Sort',         type: 'select', options: ['ASC','DESC'], default: 'ASC' },
+    ],
+  },
+  {
+    type: 'book_collector', label: 'Book / Execution Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Fetches 24hr execution book records for a given book and currency pair.',
+    inputs: ['alert_context'], outputs: ['raw_book'],
+    config: [
+      { key: 'table',        label: 'Source Table',  type: 'text',   default: 'hs_execution' },
+      { key: 'window_hours', label: 'Window (hrs)',  type: 'number', default: 24 },
+    ],
+  },
+  {
+    type: 'market_collector', label: 'Market Data Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Fetches market snapshots (bid/ask/mid) for the instrument window.',
+    inputs: ['alert_context'], outputs: ['raw_market'],
+    config: [{ key: 'table', label: 'Source Table', type: 'text', default: 'market_snapshots' }],
+  },
+  {
+    type: 'comms_collector', label: 'Comms Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Fetches trader communications for the alert window.',
+    inputs: ['alert_context'], outputs: ['raw_comms'],
+    config: [{ key: 'table', label: 'Source Table', type: 'text', default: 'trader_communications' }],
+  },
+  {
+    type: 'fi_auction_collector', label: 'Auction Calendar Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Checks for DMO/Treasury auctions within ±2hr of alert time.',
+    inputs: ['alert_context'], outputs: ['raw_auction'],
+    config: [
+      { key: 'table',        label: 'Source Table', type: 'text',   default: 'auction_calendar' },
+      { key: 'window_hours', label: 'Window (hrs)', type: 'number', default: 2 },
+    ],
+  },
+  {
+    type: 'counterparty_collector', label: 'Counterparty Collector', category: 'collector', colour: '#3b82f6',
+    description: 'Fetches counterparty relationship data (affiliation, beneficial ownership).',
+    inputs: ['alert_context'], outputs: ['raw_counterparty'],
+    config: [{ key: 'table', label: 'Source Table', type: 'text', default: 'counterparty_reference' }],
+  },
+  // EXTRACTORS
+  {
+    type: 'order_extractor', label: 'Order Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses raw orders → OrderRecord. Labels OWN vs CLIENT rows.',
+    inputs: ['raw_orders'], outputs: ['order_records'], config: [],
+  },
+  {
+    type: 'book_extractor', label: 'Book Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses raw book/execution data → BookRecord.',
+    inputs: ['raw_book'], outputs: ['book_records'], config: [],
+  },
+  {
+    type: 'market_extractor', label: 'Market Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses market snapshots → MarketSnapshot. Labels PRE/TRADER_ENTRY/CLIENT_EXEC/POST.',
+    inputs: ['raw_market'], outputs: ['market_records'], config: [],
+  },
+  {
+    type: 'fi_order_extractor', label: 'FI Order Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses FI order book → FIOrderRecord with DV01 and yield fields.',
+    inputs: ['raw_orders'], outputs: ['fi_order_records'], config: [],
+  },
+  {
+    type: 'fi_execution_extractor', label: 'FI Execution Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses FI execution records including cleared_via and counterparty.',
+    inputs: ['raw_book'], outputs: ['fi_execution_records'], config: [],
+  },
+  {
+    type: 'wash_trade_extractor', label: 'Wash Trade Extractor', category: 'extractor', colour: '#8b5cf6',
+    description: 'Parses executions for wash trading analysis, adds affiliation flags.',
+    inputs: ['raw_book', 'raw_counterparty'], outputs: ['wash_trade_records'], config: [],
+  },
+  // ANALYSERS
+  {
+    type: 'order_lifecycle_analyser', label: 'Order Lifecycle Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Computes initial_qty, total_filled, duration, status from order records.',
+    inputs: ['order_records'], outputs: ['lifecycle_result'], config: [],
+  },
+  {
+    type: 'trade_metrics_analyser', label: 'Trade Metrics Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Counts trades in before/during/after windows around the order.',
+    inputs: ['book_records', 'lifecycle_result'], outputs: ['trade_metrics_result'],
+    config: [
+      { key: 'window_pre_minutes',  label: 'Pre-window (min)',  type: 'number', default: 30 },
+      { key: 'window_post_minutes', label: 'Post-window (min)', type: 'number', default: 30 },
+    ],
+  },
+  {
+    type: 'fi_otr_analyser', label: 'FI OTR by Tenor Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Computes DV01-normalised OTR per tenor bucket (2yr/5yr/10yr/30yr).',
+    inputs: ['fi_order_records'], outputs: ['otr_result'], config: [],
+  },
+  {
+    type: 'fi_cancel_latency_analyser', label: 'Cancel Latency Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Computes median cancel latency in ms from CANCEL events.',
+    inputs: ['fi_order_records'], outputs: ['latency_result'], config: [],
+  },
+  {
+    type: 'fi_yield_displacement_analyser', label: 'Yield Displacement Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Measures yield displacement bps between PRE and SPOOF_ACTIVE snapshots.',
+    inputs: ['market_records'], outputs: ['yield_result'], config: [],
+  },
+  {
+    type: 'fi_book_imbalance_analyser', label: 'Book Imbalance Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Computes DV01-normalised bid/ask imbalance ratio.',
+    inputs: ['market_records'], outputs: ['imbalance_result'], config: [],
+  },
+  {
+    type: 'fi_directional_reversal_analyser', label: 'Directional Reversal Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Detects if dominant trade direction reverses between early and late executions.',
+    inputs: ['fi_execution_records'], outputs: ['reversal_result'], config: [],
+  },
+  {
+    type: 'fi_auction_analyser', label: 'Auction Calendar Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Checks proximity to DMO auction and computes OTR adjustment factor.',
+    inputs: ['raw_auction'], outputs: ['auction_result'], config: [],
+  },
+  {
+    type: 'wash_pair_detector', label: 'Wash Pair Detector', category: 'analyser', colour: '#14b8a6',
+    description: 'Finds offsetting BUY/SELL pairs with same or affiliated counterparty.',
+    inputs: ['wash_trade_records'], outputs: ['wash_pairs_result'],
+    config: [{ key: 'time_window_minutes', label: 'Pair window (min)', type: 'number', default: 5 }],
+  },
+  {
+    type: 'volume_inflation_analyser', label: 'Volume Inflation Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Computes wash volume as % of total market volume.',
+    inputs: ['wash_pairs_result', 'wash_trade_records'], outputs: ['volume_result'], config: [],
+  },
+  {
+    type: 'price_marking_analyser', label: 'Price Marking Analyser', category: 'analyser', colour: '#14b8a6',
+    description: 'Checks if wash trades cluster near EOD (17:00 UTC) or SOFR/SONIA fixing.',
+    inputs: ['wash_pairs_result'], outputs: ['marking_result'], config: [],
+  },
+  // FILTERS
+  {
+    type: 'indicator_filter', label: 'Indicator Filter', category: 'filter', colour: '#f59e0b',
+    description: 'Applies SOP thresholds to analyser results and counts flagged indicators.',
+    inputs: ['lifecycle_result','trade_metrics_result','otr_result','latency_result',
+             'yield_result','imbalance_result','reversal_result','auction_result',
+             'wash_pairs_result','volume_result','marking_result'],
+    outputs: ['indicator_set'], config: [],
+  },
+  {
+    type: 'routing_engine', label: 'Routing Engine', category: 'filter', colour: '#f59e0b',
+    description: 'Applies routing rules → CLOSE / HUMAN REVIEW / ESCALATE.',
+    inputs: ['indicator_set'], outputs: ['disposition'],
+    config: [
+      { key: 'escalate_threshold',     label: 'Escalate if flags ≥',     type: 'number', default: 5 },
+      { key: 'human_review_threshold', label: 'Human review if flags ≥', type: 'number', default: 3 },
+    ],
+  },
+  // OUTPUTS
+  {
+    type: 'summary_builder', label: 'Summary Builder', category: 'output', colour: '#64748b',
+    description: 'Fills SOP summary templates with analyser outputs.',
+    inputs: ['lifecycle_result','trade_metrics_result','disposition'], outputs: ['summary_text'], config: [],
+  },
+  {
+    type: 'ai_summary', label: 'AI Summary (Gemini)', category: 'output', colour: '#64748b',
+    description: 'Calls Gemini to write FINDINGS / WHAT WAS RULED OUT / DEFENSIBILITY FLAG memo.',
+    inputs: ['indicator_set','disposition'], outputs: ['ai_memo'],
+    config: [
+      { key: 'model',     label: 'Model',     type: 'text',   default: 'gemini-2.5-flash' },
+      { key: 'max_words', label: 'Max words', type: 'number', default: 300 },
+    ],
+  },
+  {
+    type: 'excel_builder', label: 'Excel Builder', category: 'output', colour: '#64748b',
+    description: 'Generates colour-coded Excel workbook with Orders, Book and Summary tabs.',
+    inputs: ['order_records','book_records','summary_text','indicator_set','disposition'], outputs: ['excel_path'],
+    config: [{ key: 'output_dir', label: 'Output dir', type: 'text', default: 'results' }],
+  },
+  {
+    type: 'audit_record', label: 'Audit Record', category: 'output', colour: '#64748b',
+    description: 'Writes full JSON audit trail with thresholds snapshot, all indicator values, disposition.',
+    inputs: ['indicator_set','disposition','ai_memo'], outputs: ['audit_path'],
+    config: [{ key: 'retention_years', label: 'Retention (yrs)', type: 'number', default: 7 }],
+  },
+];

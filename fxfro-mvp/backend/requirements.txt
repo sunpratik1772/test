@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+google-generativeai
+sse-starlette
+pydantic
+openpyxl
+certifi
+pandas

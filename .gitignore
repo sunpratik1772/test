@@ -21,6 +21,16 @@ frontend/dist/
 # Data outputs
 agent_outputs/
 
+# Generated report files
+workflow-builder/backend/output/
+fxfro-mvp/backend/output/
+
+# Compiled frontend builds & deps inside subprojects
+workflow-builder/frontend/dist/
+workflow-builder/frontend/node_modules/
+fxfro-mvp/frontend/dist/
+fxfro-mvp/frontend/node_modules/
+
 # IDE
 .vscode/
 .idea/

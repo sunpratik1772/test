@@ -1,0 +1,9 @@
+timestamp,trader_id,channel,counterparty,content_summary,flagged_keywords,instrument_mentioned
+2024-01-15T09:14:00,TRADER_001,BLOOMBERG_CHAT,SALES_002,Sales desk advises large client XYZ looking to sell EUR/USD in size — wants to move quickly before NY open liquidity thins,"sell,move quickly,client flow",EUR/USD
+2024-01-15T09:15:30,TRADER_001,BLOOMBERG_CHAT,SALES_002,SALES_002 confirms client order ~20M EUR/USD — says to sell it off before 09:30 window or client will go to street,"sell it off,move quickly,client order",EUR/USD
+2024-01-15T09:20:00,TRADER_001,BLOOMBERG_CHAT,TRADER_004,Chatting general market color on EUR/USD — noting slight downside drift this morning nothing unusual,,EUR/USD
+2024-01-15T09:25:00,TRADER_001,PHONE,RISK_DESK,Routine risk check-in on prop book positioning — discussed delta limits and end-of-day squaring,,
+2024-01-15T09:10:00,TRADER_002,BLOOMBERG_CHAT,SALES_003,Discussing GBP/USD morning flow — client interest in topside 1.2750 calls expiring Friday,,GBP/USD
+2024-01-15T09:18:00,TRADER_002,EMAIL,RESEARCH_01,Reviewing morning FX research note on USD inflation expectations and Fed speak schedule,,USD
+2024-01-15T09:12:00,TRADER_003,BLOOMBERG_CHAT,SALES_004,Client inquiry on USD/JPY forward points for 1-month tenor — routine hedging request,,USD/JPY
+2024-01-15T09:23:00,TRADER_003,PHONE,TRADER_005,Discussing end-of-month rebalancing flows and likely EUR demand from pension funds,,EUR/USD
